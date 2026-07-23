@@ -38,3 +38,28 @@ def test_pipeline_synthetic_pdf():
     finally:
         if os.path.exists(pdf_path):
             os.remove(pdf_path)
+
+
+def test_pipeline_max_tier_limit():
+    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+        pdf_path = tmp.name
+
+    doc = fitz.open()
+    p1 = doc.new_page()
+    p1.insert_text((50, 100), "Texto simples na página 1.")
+    doc.save(pdf_path)
+    doc.close()
+
+    try:
+        # Quando forçado tier 3, mas com max_tier=1, deve utilizar tier 1
+        config = ExtractionConfig(forced_tier=3, max_tier=1)
+        extractor = TieredPDFExtractor(config=config)
+        res = extractor.process_pdf(pdf_path)
+
+        assert res.pages[0].tier_used == 1
+        assert res.tier_distribution["tier1"] == 1
+        assert res.tier_distribution["tier3"] == 0
+    finally:
+        if os.path.exists(pdf_path):
+            os.remove(pdf_path)
+

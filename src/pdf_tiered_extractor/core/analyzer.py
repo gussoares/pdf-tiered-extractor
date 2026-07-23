@@ -11,6 +11,8 @@ class PageComplexityReport(BaseModel):
     drawing_count: int
     table_count: int
     is_scanned: bool = False
+    has_images: bool = False
+    requires_image_ocr: bool = False
     has_complex_drawings: bool = False
     has_tables: bool = False
     recommended_tier: int = 1  # 1: PyMuPDF, 2: Docling/Layout, 3: OCR
@@ -69,11 +71,13 @@ class PageComplexityAnalyzer:
         except Exception:
             table_count = 0
 
+        has_images = image_count > 0 or max_img_ratio > 0.02
         # Uma página é considerada escaneada (Tier 3) se não possui texto nativo (char_count == 0)
         # OU se o texto é extremamente curto E há uma imagem ocupando a página (scan com OCR parcial).
         is_scanned = (char_count == 0) or (
-            char_count < self.min_char_threshold and (image_count > 0 or max_img_ratio > self.scanned_img_area_threshold)
+            char_count < self.min_char_threshold and (has_images or max_img_ratio > self.scanned_img_area_threshold)
         )
+        requires_image_ocr = is_scanned or (char_count < self.min_char_threshold) or has_images
         has_complex_drawings = drawing_count >= self.drawing_complexity_threshold
         has_tables = table_count > 0
 
@@ -94,6 +98,8 @@ class PageComplexityAnalyzer:
             drawing_count=drawing_count,
             table_count=table_count,
             is_scanned=is_scanned,
+            has_images=has_images,
+            requires_image_ocr=requires_image_ocr,
             has_complex_drawings=has_complex_drawings,
             has_tables=has_tables,
             recommended_tier=recommended_tier,

@@ -16,17 +16,25 @@ def cli():
 @click.option("--format", "-f", "output_format", type=click.Choice(["txt", "md", "json", "all"]), default="md", help="Formato de saída desejado.")
 @click.option("--output-dir", "-o", type=click.Path(file_okay=False, dir_okay=True), default=None, help="Diretório para salvar os arquivos gerados.")
 @click.option("--tier", "-t", type=int, default=None, help="Forçar uso de um Tier específico (1: PyMuPDF, 2: Docling, 3: OCR).")
+@click.option("--max-tier", type=click.IntRange(1, 3), default=3, help="Teto máximo de Tier permitido (1: PyMuPDF apenas, 2: até Docling, 3: até OCR).")
 @click.option("--max-pages", "-m", type=int, default=None, help="Número máximo de páginas a processar.")
+@click.option("--verify/--no-verify", default=True, help="Executar validação de completitude/integridade do PDF.")
+@click.option("--strict-verify", is_flag=True, help="Interromper execução caso ocorra falha na validação de completitude.")
+@click.option("--image-ocr/--no-image-ocr", default=True, help="Ativar busca garantida de texto em imagens se a página for vazia ou tiver imagens.")
 @click.option("--verbose", "-v", is_flag=True, help="Exibir informações detalhadas durante o processamento.")
-def process(pdf_path: str, output_format: str, output_dir: str, tier: int, max_pages: int, verbose: bool):
+def process(pdf_path: str, output_format: str, output_dir: str, tier: int, max_tier: int, max_pages: int, verify: bool, strict_verify: bool, image_ocr: bool, verbose: bool):
     """Processa um arquivo PDF aplicando o pipeline em cascata por página."""
     if verbose:
         logging.getLogger().setLevel(logging.DEBUG)
 
     click.echo(f"[+] Iniciando extracao de: {pdf_path}")
     config = ExtractionConfig(
+        max_tier=max_tier,
         forced_tier=tier,
-        max_pages=max_pages
+        max_pages=max_pages,
+        verify_completeness=verify,
+        strict_completeness=strict_verify,
+        extract_image_text_on_demand=image_ocr
     )
     extractor = TieredPDFExtractor(config=config)
 
@@ -35,6 +43,13 @@ def process(pdf_path: str, output_format: str, output_dir: str, tier: int, max_p
     except Exception as e:
         click.echo(f"[ERROR] Erro no processamento: {e}", err=True)
         sys.exit(1)
+
+    if result.completeness:
+        status_str = "COMPLETO" if result.completeness.is_complete else "ALERTA/INCOMPLETO"
+        click.echo(f"[+] Integridade do PDF: {status_str} ({result.completeness.file_size_bytes} bytes, {result.completeness.total_pages} paginas).")
+        if result.completeness.issues:
+            for issue in result.completeness.issues:
+                click.echo(f"    [!] Problema: {issue}", err=True)
 
     click.echo(f"[+] Concluido em {result.elapsed_seconds:.3f}s ({result.total_pages} paginas).")
     click.echo(f"[+] Distribuição de Tiers: Tier 1={result.tier_distribution['tier1']} | Tier 2={result.tier_distribution['tier2']} | Tier 3={result.tier_distribution['tier3']}")

@@ -6,6 +6,7 @@ Biblioteca para extração progressiva/em cascata de documentos PDF para TXT, Ma
 
 from .core.pipeline import TieredPDFExtractor, ExtractionConfig, ExtractionResult, PageResult
 from .core.analyzer import PageComplexityAnalyzer, PageComplexityReport
+from .core.validator import DocumentValidator, CompletenessReport
 
 __version__ = "0.1.0"
 __all__ = [
@@ -15,4 +16,6 @@ __all__ = [
     "PageResult",
     "PageComplexityAnalyzer",
     "PageComplexityReport",
+    "DocumentValidator",
+    "CompletenessReport",
 ]
